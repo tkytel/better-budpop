@@ -1,6 +1,6 @@
 .\"
 .mso ja.tmac
-.Dd 16th November, 2025
+.Dd 2nd May, 2026
 .Dt BUDPOP 1
 .Os TKYTEL LoLLIPoP
 .Sh NAME
@@ -19,24 +19,38 @@
 より具体的には、
 IPv4 上の UDP を利用した通信により、
 人間向けのメッセージをインタラクティブに送受信できます。
+画面には TUI が表示され、
+送受信の履歴を見ながらメッセージを入力できます。
 .Pp
 .Nm
 は UDP の
 .Ar listen
 番ポートでリスンします。
-受信されたデータグラムの内容は標準出力に書き出されます。
+受信されたデータグラムはログとして画面に表示されます。
+ログにはタイムスタンプと受信元 IP アドレスが含まれます。
 また、
-標準入力から読み込んだ内容を
+入力欄から与えた内容を
 .Ar destination
 の
 .Ar port
 番ポートへデータグラムを送信します。
+送信ログにもタイムスタンプと送信元 IP アドレスが含まれます。
 .Pp
 次のオプションを利用できます。
 .Bl -tag
 .It Fl b
 ブロードキャストを有効にします。
 .El
+.Pp
+TUI 上では、
+.Ic Enter
+で送信、
+.Ic Ctrl+L
+でログ消去、
+.Ic q
+または
+.Ic Ctrl+C
+で終了できます。
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES

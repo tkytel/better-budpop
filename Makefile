@@ -1,12 +1,11 @@
 TARGET=	budpop
-OBJS=	budpop.o
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CC) -o $@ $^
+$(TARGET): budpop.go go.mod
+	go build -o $@ .
 
 clean:
-	$(RM) $(TARGET) $(OBJS)
+	$(RM) $(TARGET)
