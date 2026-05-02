@@ -6,35 +6,19 @@ on:
     tags: ['*']
 
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: true
-
   build-and-release:
     runs-on: ubuntu-latest
-    needs: [create-release]
+    permissions:
+      contents: write
     strategy:
       matrix:
         goos: [windows, darwin, linux]
         goarch: [386, amd64, arm64]
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Setup Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: '1.24.2'
     - name: Build
@@ -50,11 +34,8 @@ jobs:
         fi
         go build -tags netgo -ldflags='-s -w' -o "${OUTPUT_NAME}" .
     - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: budpop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: budpop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-        asset_name: budpop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-        asset_content_type: application/octet-stream
