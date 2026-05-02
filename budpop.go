@@ -287,6 +287,9 @@ func (m model) View() string {
 
 func sendMessage(conn *net.UDPConn, dest *net.UDPAddr, body string) tea.Cmd {
 	message := body
+	if !strings.HasSuffix(message, "\n") {
+		message += "\n"
+	}
 	return func() tea.Msg {
 		if _, err := conn.WriteToUDP([]byte(message), dest); err != nil {
 			return sendResultMsg{err: fmt.Errorf("send udp: %w", err)}
