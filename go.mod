@@ -1,4 +1,4 @@
-module github.com/tkytel/betterbudpop
+module github.com/tkytel/better-budpop
 
 go 1.24.2
 
