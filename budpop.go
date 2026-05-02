@@ -291,17 +291,33 @@ func (m *model) resize() {
 	m.viewport.Width = max(10, contentWidth-2)
 	m.viewport.Height = contentHeight
 	m.input.Width = max(10, contentWidth-6)
+	m.refreshViewport()
 	m.viewport.GotoBottom()
 }
 
 func (m *model) appendLog(entry string) {
 	m.logs = append(m.logs, entry)
-	m.viewport.SetContent(strings.Join(m.logs, "\n\n"))
+	m.refreshViewport()
 	m.viewport.GotoBottom()
 	m.status = fmt.Sprintf("%d message(s) in log", len(m.logs))
 	if err := writeAuditLine(m.logFile, entry); err != nil {
 		m.errText = fmt.Sprintf("write audit log: %v", err)
 	}
+}
+
+func (m *model) refreshViewport() {
+	if len(m.logs) == 0 {
+		m.viewport.SetContent("")
+		return
+	}
+
+	wrapped := make([]string, 0, len(m.logs))
+	wrapStyle := lipgloss.NewStyle().Width(max(1, m.viewport.Width))
+	for _, entry := range m.logs {
+		wrapped = append(wrapped, wrapStyle.Render(entry))
+	}
+
+	m.viewport.SetContent(strings.Join(wrapped, "\n\n"))
 }
 
 func (m model) View() string {
@@ -391,11 +407,11 @@ func firstUsableIPv4() string {
 }
 
 func formatReceiveLog(ts time.Time, remote *net.UDPAddr, body string) string {
-	return fmt.Sprintf("[%s] recv src=%s:%d msg=%s", ts.Format(timeLayout), remote.IP.String(), remote.Port, sanitizeMessage(body))
+	return fmt.Sprintf("[%s] recv src=%s:%d\nmsg=%s", ts.Format(timeLayout), remote.IP.String(), remote.Port, sanitizeMessage(body))
 }
 
 func formatSendLog(ts time.Time, sourceIP string, dest *net.UDPAddr, body string) string {
-	return fmt.Sprintf("[%s] send src=%s dst=%s:%d msg=%s", ts.Format(timeLayout), sourceIP, dest.IP.String(), dest.Port, sanitizeMessage(body))
+	return fmt.Sprintf("[%s] send src=%s dst=%s:%d\nmsg=%s", ts.Format(timeLayout), sourceIP, dest.IP.String(), dest.Port, sanitizeMessage(body))
 }
 
 func sanitizeMessage(body string) string {
