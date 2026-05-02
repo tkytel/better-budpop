@@ -14,6 +14,9 @@ jobs:
       matrix:
         goos: [windows, darwin, linux]
         goarch: [386, amd64, arm64]
+        exclude:
+          - goos: darwin
+            goarch: 386
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
