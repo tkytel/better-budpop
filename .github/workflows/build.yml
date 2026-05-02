@@ -1,0 +1,43 @@
+name: Build and Release
+
+on:
+  push:
+    tags: ['*']
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        goos: [darwin, linux]
+        goarch: [386, amd64, arm64]
+        exclude:
+          - goos: darwin
+            goarch: 386
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24.2'
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        go env
+        go version
+        OUTPUT_NAME="budpop-${{ matrix.goos }}-${{ matrix.goarch }}"
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          OUTPUT_NAME="${OUTPUT_NAME}.exe"
+        fi
+        go build -tags netgo -ldflags='-s -w' -o "${OUTPUT_NAME}" .
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: budpop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

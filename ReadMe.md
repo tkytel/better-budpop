@@ -1,4 +1,4 @@
-# ![BUDPOP: Belated UDP over Post](./budpop.svg)
+# ![BUDPOP: Belated UDP over Post](./budpop.png)
 
 ## これはなに
 
