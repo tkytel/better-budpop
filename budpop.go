@@ -255,7 +255,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 		case "ctrl+l":
 			m.logs = nil
@@ -313,7 +313,7 @@ func (m model) View() string {
 		headerStyle.Render("budpop"),
 		metaStyle.Render(fmt.Sprintf("listen :%s | dest %s | broadcast %t", m.listenPort, m.dest.String(), m.broadcast)),
 		metaStyle.Render(fmt.Sprintf("audit %s", m.logPath)),
-		metaStyle.Render("Enter: send  Ctrl+L: clear log  Q/Ctrl+C: quit"),
+		metaStyle.Render("return: send, ^L: clear log, ^C: bye"),
 	)
 
 	logPanel := panelStyle.Width(max(20, m.width-2)).Height(m.viewport.Height + 2).Render(m.viewport.View())
