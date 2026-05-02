@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -46,6 +47,8 @@ type sendResultMsg struct {
 type model struct {
 	conn       *net.UDPConn
 	dest       *net.UDPAddr
+	logFile    *os.File
+	logPath    string
 	recv       chan tea.Msg
 	input      textinput.Model
 	viewport   viewport.Model
@@ -79,6 +82,13 @@ func main() {
 	}
 	defer conn.Close()
 
+	logFile, logPath, err := openAuditLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "budpop: %v\n", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+
 	recv := make(chan tea.Msg, 32)
 	go readLoop(conn, recv)
 
@@ -91,21 +101,25 @@ func main() {
 	m := model{
 		conn:       conn,
 		dest:       dest,
+		logFile:    logFile,
+		logPath:    logPath,
 		recv:       recv,
 		input:      input,
 		status:     fmt.Sprintf("listening on 0.0.0.0:%s, sending to %s", listenPort, dest.String()),
 		listenPort: listenPort,
 		broadcast:  *broadcast,
-		logs: []string{
-			fmt.Sprintf("[%s] system ready src=local dst=%s note=%s", time.Now().Format(timeLayout), dest.String(), sanitizeMessage("TUI started")),
-		},
 	}
-	m.viewport.SetContent(strings.Join(m.logs, "\n\n"))
+	m.appendLog(fmt.Sprintf("[%s] system ready src=local dst=%s note=%s", time.Now().Format(timeLayout), dest.String(), sanitizeMessage("TUI started")))
+	m.status = fmt.Sprintf("listening on 0.0.0.0:%s, sending to %s", listenPort, dest.String())
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "budpop: %v\n", err)
 		os.Exit(1)
+	}
+
+	if err := writeAuditLine(logFile, fmt.Sprintf("[%s] system stop src=local note=%s", time.Now().Format(timeLayout), sanitizeMessage("TUI exited"))); err != nil {
+		fmt.Fprintf(os.Stderr, "budpop: write audit log: %v\n", err)
 	}
 }
 
@@ -139,6 +153,32 @@ func openSocket(listenPort, destination, destPort string, broadcast bool) (*net.
 	}
 
 	return conn, dest, nil
+}
+
+func openAuditLog() (*os.File, string, error) {
+	logPath, err := filepath.Abs("budpop.log")
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve audit log path: %w", err)
+	}
+
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, "", fmt.Errorf("open audit log: %w", err)
+	}
+
+	return logFile, logPath, nil
+}
+
+func writeAuditLine(logFile *os.File, entry string) error {
+	if logFile == nil {
+		return nil
+	}
+
+	if _, err := fmt.Fprintln(logFile, entry); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func enableBroadcast(conn *net.UDPConn) error {
@@ -259,6 +299,9 @@ func (m *model) appendLog(entry string) {
 	m.viewport.SetContent(strings.Join(m.logs, "\n\n"))
 	m.viewport.GotoBottom()
 	m.status = fmt.Sprintf("%d message(s) in log", len(m.logs))
+	if err := writeAuditLine(m.logFile, entry); err != nil {
+		m.errText = fmt.Sprintf("write audit log: %v", err)
+	}
 }
 
 func (m model) View() string {
@@ -269,6 +312,7 @@ func (m model) View() string {
 	header := lipgloss.JoinVertical(lipgloss.Left,
 		headerStyle.Render("budpop"),
 		metaStyle.Render(fmt.Sprintf("listen :%s | dest %s | broadcast %t", m.listenPort, m.dest.String(), m.broadcast)),
+		metaStyle.Render(fmt.Sprintf("audit %s", m.logPath)),
 		metaStyle.Render("Enter: send  Ctrl+L: clear log  Q/Ctrl+C: quit"),
 	)
 
