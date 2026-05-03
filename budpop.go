@@ -109,7 +109,8 @@ func main() {
 		listenPort: listenPort,
 		broadcast:  *broadcast,
 	}
-	m.appendLog(fmt.Sprintf("[%s] system ready src=local dst=%s note=%s", time.Now().Format(timeLayout), dest.String(), sanitizeMessage("TUI started")))
+	readyLog := fmt.Sprintf("[%s] system ready src=local dst=%s note=%s", time.Now().Format(timeLayout), dest.String(), sanitizeMessage("TUI started"))
+	m.appendLog(readyLog, readyLog)
 	m.status = fmt.Sprintf("listening on 0.0.0.0:%s, sending to %s", listenPort, dest.String())
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -236,7 +237,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case packetMsg:
 		m.errText = ""
-		m.appendLog(formatReceiveLog(msg.timestamp, msg.remote, string(msg.payload)))
+		m.appendLog(formatReceiveLog(msg.timestamp, msg.remote, string(msg.payload), true), formatReceiveLog(msg.timestamp, msg.remote, string(msg.payload), false))
 		return m, waitForPacket(m.recv)
 
 	case packetErrMsg:
@@ -249,7 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.errText = ""
-		m.appendLog(formatSendLog(msg.timestamp, msg.sourceIP, m.dest, msg.body))
+		m.appendLog(formatSendLog(msg.timestamp, msg.sourceIP, m.dest, msg.body, true), formatSendLog(msg.timestamp, msg.sourceIP, m.dest, msg.body, false))
 		m.status = fmt.Sprintf("sent to %s", m.dest.String())
 		return m, nil
 
@@ -307,12 +308,12 @@ func (m *model) resize() {
 	m.viewport.GotoBottom()
 }
 
-func (m *model) appendLog(entry string) {
-	m.logs = append(m.logs, entry)
+func (m *model) appendLog(displayEntry, auditEntry string) {
+	m.logs = append(m.logs, displayEntry)
 	m.refreshViewport()
 	m.viewport.GotoBottom()
 	m.status = fmt.Sprintf("%d message(s) in log", len(m.logs))
-	if err := writeAuditLine(m.logFile, entry); err != nil {
+	if err := writeAuditLine(m.logFile, auditEntry); err != nil {
 		m.errText = fmt.Sprintf("write audit log: %v", err)
 	}
 }
@@ -418,12 +419,22 @@ func firstUsableIPv4() string {
 	return ""
 }
 
-func formatReceiveLog(ts time.Time, remote *net.UDPAddr, body string) string {
-	return fmt.Sprintf("[%s] recv src=%s:%d\nmsg=%s", ts.Format(timeLayout), remote.IP.String(), remote.Port, sanitizeMessage(body))
+func formatReceiveLog(ts time.Time, remote *net.UDPAddr, body string, multiline bool) string {
+	prefix := fmt.Sprintf("[%s] recv src=%s:%d", ts.Format(timeLayout), remote.IP.String(), remote.Port)
+	return formatMessageLog(prefix, body, multiline)
 }
 
-func formatSendLog(ts time.Time, sourceIP string, dest *net.UDPAddr, body string) string {
-	return fmt.Sprintf("[%s] send src=%s dst=%s:%d\nmsg=%s", ts.Format(timeLayout), sourceIP, dest.IP.String(), dest.Port, sanitizeMessage(body))
+func formatSendLog(ts time.Time, sourceIP string, dest *net.UDPAddr, body string, multiline bool) string {
+	prefix := fmt.Sprintf("[%s] send src=%s dst=%s:%d", ts.Format(timeLayout), sourceIP, dest.IP.String(), dest.Port)
+	return formatMessageLog(prefix, body, multiline)
+}
+
+func formatMessageLog(prefix, body string, multiline bool) string {
+	if multiline {
+		return fmt.Sprintf("%s\nmsg=%s", prefix, sanitizeMessage(body))
+	}
+
+	return fmt.Sprintf("%s msg=%s", prefix, sanitizeMessage(body))
 }
 
 func sanitizeMessage(body string) string {
