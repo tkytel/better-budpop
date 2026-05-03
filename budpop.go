@@ -17,7 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const timeLayout = "2006-01-02 15:04:05"
+const timeLayout = "2006-01-02 15:04:05.000"
 
 var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
