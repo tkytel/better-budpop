@@ -93,7 +93,7 @@ func main() {
 	go readLoop(conn, recv)
 
 	input := textinput.New()
-	input.Placeholder = "Type a message and press Enter"
+	input.Placeholder = "Type a message and press return to send"
 	input.Focus()
 	input.CharLimit = 1024
 	input.Prompt = "> "
