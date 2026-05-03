@@ -53,6 +53,9 @@ type model struct {
 	input      textinput.Model
 	viewport   viewport.Model
 	logs       []string
+	history    []string
+	historyIdx int
+	draft      string
 	status     string
 	errText    string
 	listenPort string
@@ -105,6 +108,7 @@ func main() {
 		logPath:    logPath,
 		recv:       recv,
 		input:      input,
+		historyIdx: -1,
 		status:     fmt.Sprintf("listening on 0.0.0.0:%s, sending to %s", listenPort, dest.String()),
 		listenPort: listenPort,
 		broadcast:  *broadcast,
@@ -258,6 +262,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "up":
+			m.recallPreviousMessage()
+			return m, nil
+		case "down":
+			m.recallNextMessage()
+			return m, nil
 		case "pgup":
 			m.viewport.LineUp(max(3, m.viewport.Height-1))
 			return m, nil
@@ -276,6 +286,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = "message is empty"
 				return m, nil
 			}
+			m.pushHistory(body)
 			m.input.SetValue("")
 			m.status = fmt.Sprintf("sending to %s", m.dest.String())
 			return m, sendMessage(m.conn, m.dest, body)
@@ -312,6 +323,45 @@ func (m *model) appendLog(displayEntry, auditEntry string) {
 	}
 }
 
+func (m *model) pushHistory(body string) {
+	m.history = append(m.history, body)
+	m.historyIdx = -1
+	m.draft = ""
+}
+
+func (m *model) recallPreviousMessage() {
+	if len(m.history) == 0 {
+		return
+	}
+
+	if m.historyIdx == -1 {
+		m.draft = m.input.Value()
+		m.historyIdx = len(m.history) - 1
+	} else if m.historyIdx > 0 {
+		m.historyIdx--
+	}
+
+	m.input.SetValue(m.history[m.historyIdx])
+	m.input.CursorEnd()
+}
+
+func (m *model) recallNextMessage() {
+	if m.historyIdx == -1 {
+		return
+	}
+
+	if m.historyIdx < len(m.history)-1 {
+		m.historyIdx++
+		m.input.SetValue(m.history[m.historyIdx])
+		m.input.CursorEnd()
+		return
+	}
+
+	m.historyIdx = -1
+	m.input.SetValue(m.draft)
+	m.input.CursorEnd()
+}
+
 func (m *model) refreshViewport() {
 	if len(m.logs) == 0 {
 		m.viewport.SetContent("")
@@ -336,7 +386,7 @@ func (m model) View() string {
 		headerStyle.Render("budpop"),
 		metaStyle.Render(fmt.Sprintf("listen :%s | dest %s | broadcast %t", m.listenPort, m.dest.String(), m.broadcast)),
 		metaStyle.Render(fmt.Sprintf("audit %s", m.logPath)),
-		metaStyle.Render("return: send, PgUp/PgDn: scroll log, ^L: clear log, ^C: bye"),
+		metaStyle.Render("return: send, up/down: recall sent, PgUp/PgDn: scroll log, ^L: clear log, ^C: bye"),
 	)
 
 	logPanel := panelStyle.Width(max(20, m.width-2)).Height(m.viewport.Height + 2).Render(m.viewport.View())
